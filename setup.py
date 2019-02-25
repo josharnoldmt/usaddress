@@ -11,7 +11,7 @@ setup(
     version='0.5.10',
     url='https://github.com/datamade/usaddress',
     description='Parse US addresses using conditional random fields',
-    name='usaddress',
+    name='usaddress_mt',
     packages=['usaddress'],
     package_data={'usaddress': ['usaddr.crfsuite']},
     license='The MIT License: http://www.opensource.org/licenses/mit-license.php',
@@ -33,6 +33,8 @@ setup(
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Information Analysis'],
     long_description="""
+    This is a MT fork of the usaddress library.
+    
     usaddress is a python library for parsing unstructured address strings into
     address components, using advanced NLP methods.
 
