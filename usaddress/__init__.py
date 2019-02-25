@@ -1,16 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
 from builtins import zip
 from builtins import str
 import os
 import string
 import re
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from typing import List, Iterable, Any, Tuple, Mapping, Optional, Sequence, Set
+from collections import OrderedDict
+
 import warnings
 
 import pycrfsuite
@@ -20,6 +18,7 @@ import probableparsing
 # Landmark, and Postal Address Data Standard
 # http://www.urisa.org/advocacy/united-states-thoroughfare-landmark-and-postal-address-data-standard
 
+# WARNING:  I think this list is incomplete.  Parsed.get_parsed_known_labels() is probably safer
 LABELS = [
     'AddressNumberPrefix',
     'AddressNumber',
@@ -144,6 +143,66 @@ except IOError:
                   'and tag methods' % MODEL_FILE)
 
 
+
+
+class Parsed:
+    address_string: str = ""
+    tokens: Sequence[str] = []
+    features: Sequence[Any] = []
+    labels: Sequence[str] = []
+    tag_mapping: Optional[Mapping[str,str]] = None
+    overall_probability: float = 1.0
+    marginal_probabilities: Sequence[float] = []
+
+
+    def __init__(self,address_string: str, tag_mapping:Optional[Mapping[str,str]]=None):
+        self.address_string = address_string
+        self.tokens = tokenize(address_string)
+        self.tag_mapping = tag_mapping
+        if self.tokens:
+            self.features = tokens2features(self.tokens)
+            self.labels = TAGGER.tag(self.features)
+            self.overall_probability = TAGGER.probability(self.labels)
+            self.marginal_probabilities = [TAGGER.marginal(label,pos) for pos,label in enumerate(self.labels)]
+
+
+    @property
+    def parsed(self) -> List[Tuple[str,str]]:
+        """Get the sequence of (token,label) tuples"""
+        return list(zip(self.tokens, self.labels))
+
+    @property
+    def tagged(self) -> Tuple[Mapping[str,str],str]:
+        """
+        Get the label->substring mapping and overall address type
+
+        Notes:
+            1. The values in the label->substring map may be tokens or the concatenation of tokens (with space delimiters)
+            2. This can raise a RepeatedLabelError if the tagging is ambiguous
+            3. The labels come from an extended set, given by "get_known_tagged_labels"
+            4. The address types can come from the set given by "get_known_tagged_overall_types"
+        """
+
+        return _tag0(self.address_string, self.parsed, self.tag_mapping)
+
+    @staticmethod
+    def get_known_parsed_labels() -> Set[str]:
+        """Get the possible labels returned by parsed"""
+        return set(TAGGER.labels())
+
+    @staticmethod
+    def get_known_tagged_labels() -> Set[str]:
+        """Get the possible labels returned by tagged"""
+        r = list(TAGGER.labels())
+        seconds = ["Second"+s for s in r]
+        r.extend(seconds)
+        return set(r)
+
+    @staticmethod
+    def get_known_tagged_overall_types() -> Set[str]:
+        """Get the possible address types"""
+        return set(['Street Address','Intersection','PO Box','Ambiguous'])
+
 def parse(address_string):
     tokens = tokenize(address_string)
 
@@ -157,13 +216,18 @@ def parse(address_string):
 
 
 def tag(address_string, tag_mapping=None):
+    tokens_and_labels = parse(address_string)
+    return _tag0(address_string, tokens_and_labels, tag_mapping)
+
+def _tag0(source: str, tokens_and_labels: Sequence[Tuple[str,str]],
+          tag_mapping:Optional[Mapping[str,str]]) -> Tuple[Mapping[str,str],str]:
     tagged_address = OrderedDict()
 
     last_label = None
     is_intersection = False
     og_labels = []
 
-    for token, label in parse(address_string):
+    for token, label in tokens_and_labels:
         if label == 'IntersectionSeparator':
             is_intersection = True
         if 'StreetName' in label and is_intersection:
@@ -182,7 +246,7 @@ def tag(address_string, tag_mapping=None):
         elif label not in tagged_address:
             tagged_address[label] = [token]
         else:
-            raise RepeatedLabelError(address_string, parse(address_string),
+            raise RepeatedLabelError(source, parse(tokens_and_labels),
                                      label)
 
         last_label = label
@@ -204,7 +268,7 @@ def tag(address_string, tag_mapping=None):
     return tagged_address, address_type
 
 
-def tokenize(address_string):
+def tokenize(address_string) -> List[str]:
     if isinstance(address_string, bytes):
         address_string = str(address_string, encoding='utf-8')
     address_string = re.sub('(&#38;)|(&amp;)', '&', address_string)
@@ -254,7 +318,7 @@ def tokenFeatures(token):
     return features
 
 
-def tokens2features(address):
+def tokens2features(address) -> list:
     feature_sequence = [tokenFeatures(address[0])]
     previous_features = feature_sequence[-1].copy()
 

@@ -18,6 +18,7 @@ setup(
     install_requires=['python-crfsuite>=0.7',
                       'future>=0.14',
                       'probableparsing'],
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
