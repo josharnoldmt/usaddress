@@ -182,7 +182,6 @@ class Parsed:
             3. The labels come from an extended set, given by "get_known_tagged_labels"
             4. The address types can come from the set given by "get_known_tagged_overall_types"
         """
-
         return _tag0(self.address_string, self.parsed, self.tag_mapping)
 
     @staticmethod
@@ -246,7 +245,7 @@ def _tag0(source: str, tokens_and_labels: Sequence[Tuple[str,str]],
         elif label not in tagged_address:
             tagged_address[label] = [token]
         else:
-            raise RepeatedLabelError(source, parse(tokens_and_labels),
+            raise RepeatedLabelError(source, tokens_and_labels,
                                      label)
 
         last_label = label
